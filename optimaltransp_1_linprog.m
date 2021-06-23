@@ -3,21 +3,27 @@ perform_toolbox_installation('signal', 'general');
 
 %% Optimal Transport of Discrete Distribution
 %%
-
+% Dimensions \(n_0, n_1\) of the clouds.
 n0 = 3;
 n1 = 4;
 
+% Compute a first point cloud \(X_0\) that is Gaussian.
+% and a second point cloud \(X_1\) that is Gaussian mixture.
 gauss = @(q,a,c)a*randn(2,q)+repmat(c(:), [1 q]);
 X0 = randn(2,n0)*.3;
 X1 = [gauss(n1/2,.5, [0 1.6]) gauss(n1/4,.3, [-1 -1]) gauss(n1/4,.3, [1 -1])];
 
+% Density weights \(p_0, p_1\).
 normalize = @(a)a/sum(a(:));
 p0 = normalize(rand(n0,1));
 p1 = normalize(rand(n1,1));
 
 %%
-
+% Shortcut for display.
 myplot = @(x,y,ms,col)plot(x,y, 'o', 'MarkerSize', ms, 'MarkerEdgeColor', 'k', 'MarkerFaceColor', col, 'LineWidth', 2);
+
+% Display the point clouds.
+% The size of each dot is proportional to its probability density weight.
 
 clf; hold on;
 for i=1:length(p0)
@@ -29,6 +35,7 @@ end
 axis([min(X1(1,:)) max(X1(1,:)) min(X1(2,:)) max(X1(2,:))]); axis off;
 
 %%
+% Compute the weight matrix
 C = repmat( sum(X0.^2)', [1 n1] ) + ...
     repmat( sum(X1.^2), [n0 1] ) - 2*X0'*X1;
 
@@ -50,6 +57,7 @@ maxit = 1e4;
 %Tolerance
 tol = 1e-9;
 
+% Compute the optimal transport plan.
 otransp = @(C,p0,p1)reshape( perform_linprog( ...
         Sigma(length(p0),length(p1)), ...
         [p0(:);p1(:)], C(:), 0, maxit, tol), [length(p0) length(p1)] );
@@ -64,8 +72,10 @@ fprintf('Constraints deviation (should be 0): %.2e, %.2e.\n', norm(sum(gamma,2)-
 
 %% Displacement Interpolation
 %%
+% Find the \(i,j\) with non-zero \(\ga_{i,j}^\star\).
 [I,J,gammaij] = find(gamma);
 
+% Display the evolution of \(\mu_t\) for a varying value of \(t \in [0,1]\).
 clf;
 tlist = linspace(0,1,6);
 for i=1:length(tlist)
@@ -83,31 +93,39 @@ end
 
 %% Optimal Assignement
 %%
+% Same number of points
 n0 = 4;
 n1 = n0;
 
+% Compute points clouds.
 X0 = randn(2,n0)*.3;
 X1 = [gauss(n1/2,.5, [0 1.6]) gauss(n1/4,.3, [-1 -1]) gauss(n1/4,.3, [1 -1])];
 
+% Constant distributions.
 p0 = ones(n0,1)/n0;
 p1 = ones(n1,1)/n1;
 %%
+% Display the coulds.
 clf; hold on;
 myplot(X0(1,:), X0(2,:), 10, 'b');
 myplot(X1(1,:), X1(2,:), 10, 'r');
 axis equal; axis off;
 
 %%
+% Display the coulds.
 C = repmat( sum(X0.^2)', [1 n1] ) + ...
     repmat( sum(X1.^2), [n0 1] ) - 2*X0'*X1;
 %%
+% Solve the optimal transport.
 gamma = otransp(C,p0,p1);
 
 %%
+% Show that \(\ga\) is a binary permutation matrix.
 clf;
 imageplot(gamma);
 
 %%
+% Display the optimal assignement.
 clf; hold on;
 [I,J,~] = find(gamma);
 for k=1:length(I)
