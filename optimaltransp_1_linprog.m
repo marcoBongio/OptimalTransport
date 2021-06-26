@@ -124,14 +124,14 @@ X1 = [1.157201449266 -0.1548838173838 -0.6689947798329 0.3208020332562;
         1.894006602047 1.083517926325 -0.8973673207685 -1.270985745005];
 
 %%
-% Display the coulds.
+% Display the clouds.
 clf; hold on;
 myplot(X0(1,:), X0(2,:), 10, 'b');
 myplot(X1(1,:), X1(2,:), 10, 'r');
 axis equal; axis off;
 
 %%
-% Display the coulds.
+% Compute C.
 C = repmat( sum(X0.^2)', [1 n1] ) + ...
     repmat( sum(X1.^2), [n0 1] ) - 2*X0'*X1;
 %%
@@ -155,4 +155,100 @@ myplot(X0(1,:), X0(2,:), 10, 'b');
 myplot(X1(1,:), X1(2,:), 10, 'r');
 axis equal; axis off;
 
-    
+
+
+%% PERFORMANCE - Optimal Transport Problem with Linear Programming
+
+perform_toolbox_installation('signal', 'general');
+
+n0 = [15 30 60 120];
+n1 = [20 40 80 160];
+
+Tc = zeros(30,4);
+Ts = zeros(30,4);
+
+gauss = @(q,a,c)a*randn(2,q)+repmat(c(:), [1 q]);
+flat = @(x)x(:);
+Cols = @(n0,n1)sparse( flat(repmat(1:n1, [n0 1])), ...
+             flat(reshape(1:n0*n1,n0,n1) ), ...
+             ones(n0*n1,1) );
+Rows = @(n0,n1)sparse( flat(repmat(1:n0, [n1 1])), ...
+             flat(reshape(1:n0*n1,n0,n1)' ), ...
+             ones(n0*n1,1) );
+Sigma = @(n0,n1)[Rows(n0,n1);Cols(n0,n1)];
+maxit = 1e4; 
+
+tol = 1e-9;
+
+otransp = @(C,p0,p1)reshape( perform_linprog( ...
+        Sigma(length(p0),length(p1)), ...
+        [p0(:);p1(:)], C(:), 0, maxit, tol), [length(p0) length(p1)] );
+
+
+for i=1:4
+    for j=1:30
+        
+        X0 = randn(2,n0(i))*.3;
+        X1 = [gauss(n1(i)/2,.5, [0 1.6]) gauss(n1(i)/4,.3, [-1 -1]) gauss(n1(i)/4,.3, [1 -1])];
+
+        normalize = @(a)a/sum(a(:));
+        p0 = normalize(rand(n0(i),1));
+        p1 = normalize(rand(n1(i),1));
+
+        tic
+        C = repmat( sum(X0.^2)', [1 n1(i)] ) + ...
+            repmat( sum(X1.^2), [n0(i) 1] ) - 2*X0'*X1;
+        
+        Tc(j,i) = toc;
+        tic
+        gamma = otransp(C,p0,p1);
+        Ts(j,i) = toc;
+    end
+end
+
+
+%% PERFORMANCE - Optimal Assignement
+perform_toolbox_installation('signal', 'general');
+
+n0 = [20 40 80 160];
+n1 = [20 40 80 160];
+
+Tc2 = zeros(30,4);
+Ts2 = zeros(30,4);
+
+gauss = @(q,a,c)a*randn(2,q)+repmat(c(:), [1 q]);
+flat = @(x)x(:);
+Cols = @(n0,n1)sparse( flat(repmat(1:n1, [n0 1])), ...
+             flat(reshape(1:n0*n1,n0,n1) ), ...
+             ones(n0*n1,1) );
+Rows = @(n0,n1)sparse( flat(repmat(1:n0, [n1 1])), ...
+             flat(reshape(1:n0*n1,n0,n1)' ), ...
+             ones(n0*n1,1) );
+Sigma = @(n0,n1)[Rows(n0,n1);Cols(n0,n1)];
+maxit = 1e4; 
+
+tol = 1e-9;
+
+otransp = @(C,p0,p1)reshape( perform_linprog( ...
+        Sigma(length(p0),length(p1)), ...
+        [p0(:);p1(:)], C(:), 0, maxit, tol), [length(p0) length(p1)] );
+
+for i=1:4
+    for j=1:30
+        X0 = randn(2,n0(i))*.3;
+        X1 = [gauss(n0(i)/2,.5, [0 1.6]) gauss(n0(i)/4,.3, [-1 -1]) gauss(n0(i)/4,.3, [1 -1])];
+        
+
+        p0 = ones(n0(i),1)/n0(i);
+        p1 = ones(n1(i),1)/n1(i);
+
+        tic
+        C = repmat( sum(X0.^2)', [1 n1(i)] ) + ...
+            repmat( sum(X1.^2), [n0(i) 1] ) - 2*X0'*X1;
+        Tc2(j,i)=toc;
+        tic
+        gamma = otransp(C,p0,p1);
+        Ts2(j,i)=toc;
+
+    end
+end

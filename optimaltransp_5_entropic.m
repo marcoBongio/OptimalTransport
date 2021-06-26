@@ -307,3 +307,94 @@ clf; hold on;
 imagesc(t,t,log(Pi+1e-5)); colormap gray(256);
 plot(s,t, 'r', 'LineWidth', 3);
 axis image; axis off; axis ij;
+
+
+
+
+
+
+%% PERFORMANCE - Sinkhorn's Algorithm
+
+perform_toolbox_installation('signal', 'general');
+
+N1 = [15 30 60 120];
+N2 = [20 40 80 160];
+
+d = 2;
+gamma = .01;
+
+Tc = zeros(30, 4);
+Ts = zeros(30, 4);
+niter = 100;
+
+for i=1:4
+    for j=1:30
+        x = rand(2,N1(i))-.5;
+
+        theta = 2*pi*rand(1,N2(i));
+        r = .8 + .2*rand(1,N2(i));
+        y = [cos(theta).*r; sin(theta).*r];
+
+        p = ones(N1(i),1)/N1(i);
+        q = ones(N2(i),1)/N2(i);
+
+        tic
+        x2 = sum(x.^2,1); y2 = sum(y.^2,1);
+        C = repmat(y2,N1(i),1)+repmat(x2.',1,N2(i))-2*x.'*y;
+        xi = exp(-C/gamma);
+        Tc(j,i) = toc;
+
+        b = ones(N2(i),1);
+        tic
+        for k=1:niter
+            a = p ./ (xi*b);
+            b = q ./ (xi'*a);
+        end
+
+        Pi = diag(a)*xi*diag(b);
+        Ts(j,i) = toc;
+    end
+end
+
+
+%% PERFORMANCE - Log-Domain Sinkhorn's Algorithm
+perform_toolbox_installation('signal', 'general');
+Ts2 = zeros(30, 4);
+N1 = [15 30 60 120];
+N2 = [20 40 80 160];
+gamma = .01;
+e = 100;
+d = 2;
+
+for i=1:4
+    for j=1:30
+        x = rand(2,N1(i))-.5;
+
+        theta = 2*pi*rand(1,N2(i));
+        r = .8 + .2*rand(1,N2(i));
+        y = [cos(theta).*r; sin(theta).*r];
+        
+        p = ones(N1(i),1)/N1(i); 
+        q = ones(1,N2(i))/N2(i);
+
+        x2 = sum(x.^2,1); y2 = sum(y.^2,1);
+        C = repmat(y2,N1(i),1)+repmat(x2.',1,N2(i))-2*x.'*y;
+        xi = exp(-C/gamma);
+        
+        minp = @(H,gamma)-gamma*log( sum(p .* exp(-H/gamma),1) );
+        minq = @(H,gamma)-gamma*log( sum(q .* exp(-H/gamma),2) );
+
+        minpp = @(H,gamma)minp(H-min(H,[],1),gamma) + min(H,[],1);
+        minqq = @(H,gamma)minq(H-min(H,[],2),gamma) + min(H,[],2);
+        
+        f = zeros(N1(i),1);
+        
+        tic
+        for it=1:e
+            g = minpp(C-f,gamma);
+            f = minqq(C-g,gamma);
+            Pi = p .* exp((f+g-C)/gamma) .* q;
+        end
+        Ts2(j,i) = toc;
+    end
+end
